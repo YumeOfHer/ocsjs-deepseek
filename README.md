@@ -28,6 +28,20 @@
 
 > 本仓库是基于 OCS 网课助手开源项目进行的个人二次开发版本，在原有功能基础上增加 DeepSeek AI 答题能力。
 
+## 🚀 快速下载与安装
+
+**不需要下载源码，也不需要自行编译！**
+
+[![下载最新版 OCS-DeepSeek](https://img.shields.io/badge/下载最新版-OCS.user.js-blue?style=for-the-badge&logo=github)](https://github.com/YumeOfHer/ocsjs-deepseek/releases/latest)
+
+1. 点击上方按钮，进入 GitHub Releases。
+2. 在 Assets 中下载 `ocs.user.js`。
+3. 使用浏览器脚本管理器（如 ScriptCat 脚本猫）安装。
+4. 在 OCS 设置中填写自己的 DeepSeek API Key。
+5. 启用 DeepSeek AI，即可开始使用。
+
+**源码开发者：** 请通过本仓库获取完整源码，自行构建。
+
 ## 项目说明
 
 本项目基于原作者的 OCS 网课助手进行修改开发，保留原项目主体结构及原有功能，并新增 DeepSeek AI 接口支持。
