@@ -220,7 +220,10 @@ export function commonWork(options: {
 	if (iframeControl) {
 		// 子 iframe 操控模式：$message 经 cors 转发到顶层时无法执行交互回调（取消/倒计时结束），
 		// 不能使用交互式预检；但自动答题必须触发，简化为直接校验题库配置 + 延迟自动开始
-		if ((workOptions.answererWrappers.length === 0) && !(workOptions.deepseekEnabled && workOptions.deepseekApiKey?.trim())) {
+		if (
+			workOptions.answererWrappers.length === 0 &&
+			!(workOptions.deepseekEnabled && workOptions.deepseekApiKey?.trim())
+		) {
 			state.checkFailed = true;
 			answerWrapperEmptyWarning(0);
 		} else {
@@ -597,7 +600,7 @@ export function createCommonAnswerer(options: {
 	let imageConvertFailWarned = false;
 
 	return async (elements: any, ctx: WorkContext<any>): Promise<SearchInformation[]> => {
-                console.info('[OCS DeepSeek诊断] 章节答题器已执行');
+		console.info('[OCS DeepSeek诊断] 章节答题器已执行');
 		const titleResult = normalize(options.titleTransform(elements, ctx));
 		const title = titleResult.text;
 		if (!title) {
@@ -606,129 +609,128 @@ export function createCommonAnswerer(options: {
 		const titleImages = titleResult.images;
 
 		const optResult = normalize(
-				options.optionsTransform
-					? options.optionsTransform(elements, ctx)
-					: (ctx.elements.options ?? [])
-							.filter(Boolean)
-							.map((o: HTMLElement | undefined) => o!.innerText)
-							.join('\n')
-			);
+			options.optionsTransform
+				? options.optionsTransform(elements, ctx)
+				: (ctx.elements.options ?? [])
+						.filter(Boolean)
+						.map((o: HTMLElement | undefined) => o!.innerText)
+						.join('\n')
+		);
 
-        const cachedResults = options.answererWrappers.length === 0 ? [] : await BackgroundProject.scripts.data.methods.searchAnswerInCaches(title, async () => {
-			await $.sleep((options.period ?? 3) * 1000);
+		const cachedResults =
+			options.answererWrappers.length === 0
+				? []
+				: await BackgroundProject.scripts.data.methods.searchAnswerInCaches(title, async () => {
+						await $.sleep((options.period ?? 3) * 1000);
 
-			const questionHasImages =
-				(titleImages?.length ?? 0) + (optResult.images?.length ?? 0) > 0 ||
-				QUESTION_IMAGE_REGEX.test(title) ||
-				QUESTION_IMAGE_REGEX.test(optResult.text);
-			// 题目含图片但未开启图片题优化：此前为静默降级（原始 URL 发出后大概率搜不到），显式提示用户开启
-			if (questionHasImages && !CommonProject.scripts.settings.cfg.imageOptimize && !imageOptimizeOffWarned) {
-				imageOptimizeOffWarned = true;
-				$message.warn({
-					content: '检测到题目包含图片，但未开启「图片题优化」（通用-全局设置-高级设置中开启），图片题将无法搜题。',
-					duration: 10
-				});
-			}
-			const { env, imageUrls } = await buildAnswererEnv({
-				type: ctx.type,
-				title,
-				options: optResult.text,
-				titleImages,
-				optionsImages: optResult.images,
-				enableImageOptimize: CommonProject.scripts.settings.cfg.imageOptimize
-			});
-			// 已开启优化但全部图片转换失败（CORS/防盗链极端情况）：此前静默回退普通题，显式提示
-			if (
-				questionHasImages &&
-				CommonProject.scripts.settings.cfg.imageOptimize &&
-				imageUrls.length === 0 &&
-				!imageConvertFailWarned
-			) {
-				imageConvertFailWarned = true;
-				$message.warn({
-					content: '题目图片下载或转换失败（可能跨域受限），本题将按普通题目搜索，图片题可能无法匹配。',
-					duration: 10
-				});
-			}
-			const searchInfos = await defaultAnswerWrapperHandler(options.answererWrappers, env);
-			// 将 AI 答案中的 [图片N] 占位符还原为对应图片 URL，使选项匹配可以命中图片选项。
-			// imageUrls 与实际上传的 env.images 严格同序（createImageSuggestion 单一数据源，含转换失败过滤）。
-			// 覆盖服务端未还原的场景：标题图占位符 / 选项行数不对齐 / 第三方题库。
-			if (imageUrls.length) {
-				for (const info of searchInfos) {
-					for (const res of info.results) {
-						if (res.answer && res.answer.includes('[图片')) {
-							res.answer = res.answer.replace(/\[图片(\d+)\]/g, (m, n) => imageUrls[Number(n) - 1] ?? m);
+						const questionHasImages =
+							(titleImages?.length ?? 0) + (optResult.images?.length ?? 0) > 0 ||
+							QUESTION_IMAGE_REGEX.test(title) ||
+							QUESTION_IMAGE_REGEX.test(optResult.text);
+						// 题目含图片但未开启图片题优化：此前为静默降级（原始 URL 发出后大概率搜不到），显式提示用户开启
+						if (questionHasImages && !CommonProject.scripts.settings.cfg.imageOptimize && !imageOptimizeOffWarned) {
+							imageOptimizeOffWarned = true;
+							$message.warn({
+								content:
+									'检测到题目包含图片，但未开启「图片题优化」（通用-全局设置-高级设置中开启），图片题将无法搜题。',
+								duration: 10
+							});
 						}
-					}
-				}
-			}
-			return searchInfos;
+						const { env, imageUrls } = await buildAnswererEnv({
+							type: ctx.type,
+							title,
+							options: optResult.text,
+							titleImages,
+							optionsImages: optResult.images,
+							enableImageOptimize: CommonProject.scripts.settings.cfg.imageOptimize
+						});
+						// 已开启优化但全部图片转换失败（CORS/防盗链极端情况）：此前静默回退普通题，显式提示
+						if (
+							questionHasImages &&
+							CommonProject.scripts.settings.cfg.imageOptimize &&
+							imageUrls.length === 0 &&
+							!imageConvertFailWarned
+						) {
+							imageConvertFailWarned = true;
+							$message.warn({
+								content: '题目图片下载或转换失败（可能跨域受限），本题将按普通题目搜索，图片题可能无法匹配。',
+								duration: 10
+							});
+						}
+						const searchInfos = await defaultAnswerWrapperHandler(options.answererWrappers, env);
+						// 将 AI 答案中的 [图片N] 占位符还原为对应图片 URL，使选项匹配可以命中图片选项。
+						// imageUrls 与实际上传的 env.images 严格同序（createImageSuggestion 单一数据源，含转换失败过滤）。
+						// 覆盖服务端未还原的场景：标题图占位符 / 选项行数不对齐 / 第三方题库。
+						if (imageUrls.length) {
+							for (const info of searchInfos) {
+								for (const res of info.results) {
+									if (res.answer && res.answer.includes('[图片')) {
+										res.answer = res.answer.replace(/\[图片(\d+)\]/g, (m, n) => imageUrls[Number(n) - 1] ?? m);
+									}
+								}
+							}
+						}
+						return searchInfos;
+				  });
+
+		// DeepSeek 独立答题，不受传统答案缓存命中影响
+		const deepseekConfig = CommonProject.scripts.settings.cfg;
+		const aiResults: SearchInformation[] = [];
+
+		console.info('[OCS DeepSeek诊断] 配置状态', {
+			enabled: deepseekConfig.deepseekEnabled,
+			apiKeyLength: deepseekConfig.deepseekApiKey?.trim()?.length ?? 0,
+			model: deepseekConfig.deepseekModel,
+			question: title,
+			questionHasImages:
+				(titleImages?.length ?? 0) > 0 ||
+				(optResult.images?.length ?? 0) > 0 ||
+				QUESTION_IMAGE_REGEX.test(title) ||
+				QUESTION_IMAGE_REGEX.test(optResult.text)
 		});
 
-        // DeepSeek 独立答题，不受传统答案缓存命中影响
-        const deepseekConfig = CommonProject.scripts.settings.cfg;
-        const aiResults: SearchInformation[] = [];
+		if (deepseekConfig.deepseekEnabled && deepseekConfig.deepseekApiKey?.trim()) {
+			console.info('[OCS DeepSeek诊断] 即将调用 askDeepSeek');
+			try {
+				const hasQuestionImages =
+					(titleImages?.length ?? 0) > 0 ||
+					(optResult.images?.length ?? 0) > 0 ||
+					QUESTION_IMAGE_REGEX.test(title) ||
+					QUESTION_IMAGE_REGEX.test(optResult.text);
 
-        console.info('[OCS DeepSeek诊断] 配置状态', {
-            enabled: deepseekConfig.deepseekEnabled,
-            apiKeyLength: deepseekConfig.deepseekApiKey?.trim()?.length ?? 0,
-            model: deepseekConfig.deepseekModel,
-            question: title,
-            questionHasImages:
-                (titleImages?.length ?? 0) > 0 ||
-                (optResult.images?.length ?? 0) > 0 ||
-                QUESTION_IMAGE_REGEX.test(title) ||
-                QUESTION_IMAGE_REGEX.test(optResult.text)
-        });
+				// 当前使用文本模型，图片题暂不发送给 DeepSeek
+				const deepseekQuestion = {
+					title: String(title ?? '').trim(),
+					options: String(optResult.text ?? '').trim(),
+					type: String(ctx.type ?? '未知')
+				};
 
-        if (
-            deepseekConfig.deepseekEnabled &&
-            deepseekConfig.deepseekApiKey?.trim()
-        ) {
-            console.info('[OCS DeepSeek诊断] 即将调用 askDeepSeek');
-            try {
-                const hasQuestionImages =
-                    (titleImages?.length ?? 0) > 0 ||
-                    (optResult.images?.length ?? 0) > 0 ||
-                    QUESTION_IMAGE_REGEX.test(title) ||
-                    QUESTION_IMAGE_REGEX.test(optResult.text);
+				console.info('[OCS DeepSeek] 实际发送题目：', deepseekQuestion);
 
-                // 当前使用文本模型，图片题暂不发送给 DeepSeek
-                const deepseekQuestion = {
-                    title: String(title ?? '').trim(),
-                    options: String(optResult.text ?? '').trim(),
-                    type: String(ctx.type ?? '未知')
-                };
+				if (!deepseekQuestion.title) {
+					throw new Error('题目为空，取消 DeepSeek 请求');
+				}
 
-                console.info('[OCS DeepSeek] 实际发送题目：', deepseekQuestion);
+				if (!hasQuestionImages) {
+					aiResults.push(
+						...(await askDeepSeek(
+							{
+								enabled: true,
+								apiKey: deepseekConfig.deepseekApiKey,
+								model: deepseekConfig.deepseekModel
+							},
+							deepseekQuestion
+						))
+					);
+				} else {
+					console.warn('[OCS DeepSeek] 检测到图片题，当前文本模型暂不处理');
+				}
+			} catch (error) {
+				console.warn('[OCS] DeepSeek 请求失败，不影响传统答题结果：', error);
+			}
+		}
 
-                if (!deepseekQuestion.title) {
-                    throw new Error('题目为空，取消 DeepSeek 请求');
-                }
-
-                if (!hasQuestionImages) {
-                    aiResults.push(...await askDeepSeek(
-                        {
-                            enabled: true,
-                            apiKey: deepseekConfig.deepseekApiKey,
-                            model: deepseekConfig.deepseekModel
-                        },
-                        deepseekQuestion
-                    ));
-                } else {
-                    console.warn('[OCS DeepSeek] 检测到图片题，当前文本模型暂不处理');
-                }
-            } catch (error) {
-                console.warn(
-                    '[OCS] DeepSeek 请求失败，不影响传统答题结果：',
-                    error
-                );
-            }
-        }
-
-        return [...cachedResults, ...aiResults];
-
+		return [...cachedResults, ...aiResults];
 	};
 }
 
@@ -749,7 +751,7 @@ function workPreCheckMessage(
 ) {
 	const { onrun, onNoAnswererWrappers, onclose, ...opts } = options;
 
-	if ((opts.answererWrappers.length === 0) && !(opts.deepseekEnabled && opts.deepseekApiKey?.trim())) {
+	if (opts.answererWrappers.length === 0 && !(opts.deepseekEnabled && opts.deepseekApiKey?.trim())) {
 		onNoAnswererWrappers?.(opts);
 		return answerWrapperEmptyWarning(0);
 	} else {
@@ -777,70 +779,65 @@ function workPreCheckMessage(
 			])
 		});
 
-        // DeepSeek 独立答题，不受传统答案缓存命中影响
-        const deepseekConfig = CommonProject.scripts.settings.cfg;
-        const aiResults: SearchInformation[] = [];
+		// DeepSeek 独立答题，不受传统答案缓存命中影响
+		const deepseekConfig = CommonProject.scripts.settings.cfg;
+		const aiResults: SearchInformation[] = [];
 
-        console.info('[OCS DeepSeek诊断] 配置状态', {
-            enabled: deepseekConfig.deepseekEnabled,
-            apiKeyLength: deepseekConfig.deepseekApiKey?.trim()?.length ?? 0,
-            model: deepseekConfig.deepseekModel,
-            question: title,
-            questionHasImages:
-                (titleImages?.length ?? 0) > 0 ||
-                (optResult.images?.length ?? 0) > 0 ||
-                QUESTION_IMAGE_REGEX.test(title) ||
-                QUESTION_IMAGE_REGEX.test(optResult.text)
-        });
+		console.info('[OCS DeepSeek诊断] 配置状态', {
+			enabled: deepseekConfig.deepseekEnabled,
+			apiKeyLength: deepseekConfig.deepseekApiKey?.trim()?.length ?? 0,
+			model: deepseekConfig.deepseekModel,
+			question: title,
+			questionHasImages:
+				(titleImages?.length ?? 0) > 0 ||
+				(optResult.images?.length ?? 0) > 0 ||
+				QUESTION_IMAGE_REGEX.test(title) ||
+				QUESTION_IMAGE_REGEX.test(optResult.text)
+		});
 
-        if (
-            deepseekConfig.deepseekEnabled &&
-            deepseekConfig.deepseekApiKey?.trim()
-        ) {
-            console.info('[OCS DeepSeek诊断] 即将调用 askDeepSeek');
-            try {
-                const hasQuestionImages =
-                    (titleImages?.length ?? 0) > 0 ||
-                    (optResult.images?.length ?? 0) > 0 ||
-                    QUESTION_IMAGE_REGEX.test(title) ||
-                    QUESTION_IMAGE_REGEX.test(optResult.text);
+		if (deepseekConfig.deepseekEnabled && deepseekConfig.deepseekApiKey?.trim()) {
+			console.info('[OCS DeepSeek诊断] 即将调用 askDeepSeek');
+			try {
+				const hasQuestionImages =
+					(titleImages?.length ?? 0) > 0 ||
+					(optResult.images?.length ?? 0) > 0 ||
+					QUESTION_IMAGE_REGEX.test(title) ||
+					QUESTION_IMAGE_REGEX.test(optResult.text);
 
-                // 当前使用文本模型，图片题暂不发送给 DeepSeek
-                const deepseekQuestion = {
-                    title: String(title ?? '').trim(),
-                    options: String(optResult.text ?? '').trim(),
-                    type: String(ctx.type ?? '未知')
-                };
+				// 当前使用文本模型，图片题暂不发送给 DeepSeek
+				const deepseekQuestion = {
+					title: String(title ?? '').trim(),
+					options: String(optResult.text ?? '').trim(),
+					type: String(ctx.type ?? '未知')
+				};
 
-                console.info('[OCS DeepSeek] 实际发送题目：', deepseekQuestion);
+				console.info('[OCS DeepSeek] 实际发送题目：', deepseekQuestion);
 
-                if (!deepseekQuestion.title) {
-                    throw new Error('题目为空，取消 DeepSeek 请求');
-                }
+				if (!deepseekQuestion.title) {
+					throw new Error('题目为空，取消 DeepSeek 请求');
+				}
 
-                if (!hasQuestionImages) {
-                    aiResults.push(...await askDeepSeek(
-                        {
-                            enabled: true,
-                            apiKey: deepseekConfig.deepseekApiKey,
-                            model: deepseekConfig.deepseekModel
-                        },
-                        deepseekQuestion
-                    ));
-                } else {
-                    console.warn('[OCS DeepSeek] 检测到图片题，当前文本模型暂不处理');
-                }
-            } catch (error) {
-                console.warn(
-                    '[OCS] DeepSeek 请求失败，不影响传统答题结果：',
-                    error
-                );
-            }
-        }
+				if (!hasQuestionImages) {
+					aiResults.push(
+						...(await askDeepSeek(
+							{
+								enabled: true,
+								apiKey: deepseekConfig.deepseekApiKey,
+								model: deepseekConfig.deepseekModel
+							},
+							deepseekQuestion
+						))
+					);
+				} else {
+					console.warn('[OCS DeepSeek] 检测到图片题，当前文本模型暂不处理');
+				}
+			} catch (error) {
+				console.warn('[OCS] DeepSeek 请求失败，不影响传统答题结果：', error);
+			}
+		}
 
-        return [...cachedResults, ...aiResults];
-
-	};
+		return [...cachedResults, ...aiResults];
+	}
 }
 
 /** 创建答题预处理信息 */
@@ -860,7 +857,7 @@ function workPreCheckMessage(
 ) {
 	const { onrun, onNoAnswererWrappers, onclose, ...opts } = options;
 
-	if ((opts.answererWrappers.length === 0) && !(opts.deepseekEnabled && opts.deepseekApiKey?.trim())) {
+	if (opts.answererWrappers.length === 0 && !(opts.deepseekEnabled && opts.deepseekApiKey?.trim())) {
 		onNoAnswererWrappers?.(opts);
 		return answerWrapperEmptyWarning(0);
 	} else {

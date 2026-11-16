@@ -8,9 +8,10 @@ export interface CommonWorkOptions {
 	thread: number;
 	upload: WorkUploadType;
 	answererWrappers: AnswererWrapper[];
-        deepseekEnabled: boolean;
-        deepseekApiKey: string;
-        deepseekModel: string;	stopSecondWhenFinish: number;
+	deepseekEnabled: boolean;
+	deepseekApiKey: string;
+	deepseekModel: string;
+	stopSecondWhenFinish: number;
 	redundanceWordsText: string;
 	answerSeparators: string;
 }
