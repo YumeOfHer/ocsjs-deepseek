@@ -352,9 +352,15 @@ export const CXProject = Project.create({
 				}
 			},
 			onrender({ panel }) {
-				if (!CommonProject.scripts.settings.cfg.answererWrappers?.length) {
-					answerWrapperEmptyWarning(10);
-				}
+				if (
+                                !CommonProject.scripts.settings.cfg.answererWrappers?.length &&
+                                !(
+                                        CommonProject.scripts.settings.cfg.deepseekEnabled &&
+                                        CommonProject.scripts.settings.cfg.deepseekApiKey?.trim()
+                                )
+                        ) {
+                                answerWrapperEmptyWarning(10);
+                        }
 
 				// 高倍速警告
 				this.offConfigChange(state.study.playbackRateWarningListenerId);
@@ -1767,9 +1773,15 @@ function searchJob(opts: typeof CXProject.scripts.study.cfg, searchedJobs: Job[]
 								(work_type === 'not-job' && CommonProject.scripts.settings.cfg['work-when-no-job'])
 							) {
 								const workOptions = CommonProject.scripts.settings.methods.getWorkOptions();
-								if (workOptions.answererWrappers === undefined || workOptions.answererWrappers.length === 0) {
-									answerWrapperEmptyWarning(0);
-								} else {
+								if (
+                                (!workOptions.answererWrappers?.length) &&
+                                !(
+                                        workOptions.deepseekEnabled &&
+                                        workOptions.deepseekApiKey?.trim()
+                                )
+                        ) {
+                                answerWrapperEmptyWarning(0);
+                        } else {
 									func = () => {
 										$console.log(`开始答题 : ` + jobName);
 										return JobRunner.chapter(root, workOptions);
@@ -2013,9 +2025,15 @@ const JobRunner = {
 			answerSeparators
 		}: CommonWorkOptions
 	) {
-		if (answererWrappers === undefined || answererWrappers.length === 0) {
-			return answerWrapperEmptyWarning(0);
-		}
+		if (
+                        (!answererWrappers?.length) &&
+                        !(
+                                CommonProject.scripts.settings.cfg.deepseekEnabled &&
+                                CommonProject.scripts.settings.cfg.deepseekApiKey?.trim()
+                        )
+                ) {
+                        return answerWrapperEmptyWarning(0);
+                }
 
 		const visual_state = BackgroundProject.scripts.render.cfg.visual;
 		const frameWindow = frame.contentWindow;

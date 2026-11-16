@@ -238,7 +238,30 @@ export const CommonProject = Project.create({
 				answererWrappers: {
 					separator: '自动答题设置',
 					defaultValue: [] as AnswererWrapper[]
-				},
+				},                          deepseekEnabled: {
+                              separator: 'DeepSeek AI 设置',
+                              label: '启用 DeepSeek AI',
+                              defaultValue: false,
+                              attrs: {
+                                  type: 'checkbox'
+                              }
+                          },
+                          deepseekApiKey: {
+                              label: 'DeepSeek API Key',
+                              defaultValue: '',
+                              attrs: {
+                                  type: 'password',
+                                  placeholder: '请输入 DeepSeek API Key'
+                              }
+                          },
+                          deepseekModel: {
+                              label: 'DeepSeek 模型',
+                              defaultValue: 'deepseek-chat',
+                              attrs: {
+                                  type: 'text',
+                                  placeholder: '例如 deepseek-chat'
+                              }
+                          },
 				/**
 				 * 禁用的题库
 				 */
@@ -1522,7 +1545,13 @@ export const CommonProject = Project.create({
 				});
 
 				const search = async (value: string) => {
-					if (CommonProject.scripts.settings.cfg.answererWrappers.length === 0) {
+					if (
+    CommonProject.scripts.settings.cfg.answererWrappers.length === 0 &&
+    !(
+        CommonProject.scripts.settings.cfg.deepseekEnabled &&
+        CommonProject.scripts.settings.cfg.deepseekApiKey?.trim()
+    )
+) {
 						$modal.alert({ content: '请先在 通用-全局设置 配置题库，才能进行在线搜题。' });
 						return;
 					}
