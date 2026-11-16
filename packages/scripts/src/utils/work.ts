@@ -776,5 +776,116 @@ function workPreCheckMessage(
 				})
 			])
 		});
+
+        // DeepSeek 独立答题，不受传统答案缓存命中影响
+        const deepseekConfig = CommonProject.scripts.settings.cfg;
+        const aiResults: SearchInformation[] = [];
+
+        console.info('[OCS DeepSeek诊断] 配置状态', {
+            enabled: deepseekConfig.deepseekEnabled,
+            apiKeyLength: deepseekConfig.deepseekApiKey?.trim()?.length ?? 0,
+            model: deepseekConfig.deepseekModel,
+            question: title,
+            questionHasImages:
+                (titleImages?.length ?? 0) > 0 ||
+                (optResult.images?.length ?? 0) > 0 ||
+                QUESTION_IMAGE_REGEX.test(title) ||
+                QUESTION_IMAGE_REGEX.test(optResult.text)
+        });
+
+        if (
+            deepseekConfig.deepseekEnabled &&
+            deepseekConfig.deepseekApiKey?.trim()
+        ) {
+            console.info('[OCS DeepSeek诊断] 即将调用 askDeepSeek');
+            try {
+                const hasQuestionImages =
+                    (titleImages?.length ?? 0) > 0 ||
+                    (optResult.images?.length ?? 0) > 0 ||
+                    QUESTION_IMAGE_REGEX.test(title) ||
+                    QUESTION_IMAGE_REGEX.test(optResult.text);
+
+                // 当前使用文本模型，图片题暂不发送给 DeepSeek
+                const deepseekQuestion = {
+                    title: String(title ?? '').trim(),
+                    options: String(optResult.text ?? '').trim(),
+                    type: String(ctx.type ?? '未知')
+                };
+
+                console.info('[OCS DeepSeek] 实际发送题目：', deepseekQuestion);
+
+                if (!deepseekQuestion.title) {
+                    throw new Error('题目为空，取消 DeepSeek 请求');
+                }
+
+                if (!hasQuestionImages) {
+                    aiResults.push(...await askDeepSeek(
+                        {
+                            enabled: true,
+                            apiKey: deepseekConfig.deepseekApiKey,
+                            model: deepseekConfig.deepseekModel
+                        },
+                        deepseekQuestion
+                    ));
+                } else {
+                    console.warn('[OCS DeepSeek] 检测到图片题，当前文本模型暂不处理');
+                }
+            } catch (error) {
+                console.warn(
+                    '[OCS] DeepSeek 请求失败，不影响传统答题结果：',
+                    error
+                );
+            }
+        }
+
+        return [...cachedResults, ...aiResults];
+
+	};
+}
+
+/** 创建答题预处理信息 */
+function workPreCheckMessage(
+	options: CommonWorkOptions & {
+		start_delay_seconds?: number;
+		onrun: (opts: CommonWorkOptions) => void;
+		/**
+		 * 当没有题库配置时的回调
+		 */
+		onNoAnswererWrappers?: (opts: CommonWorkOptions) => void;
+		/**
+		 * 手动关闭时的回调
+		 */
+		onclose?: (opts: CommonWorkOptions, closedMessage: MessageElement) => void;
+	}
+) {
+	const { onrun, onNoAnswererWrappers, onclose, ...opts } = options;
+
+	if ((opts.answererWrappers.length === 0) && !(opts.deepseekEnabled && opts.deepseekApiKey?.trim())) {
+		onNoAnswererWrappers?.(opts);
+		return answerWrapperEmptyWarning(0);
+	} else {
+		options.start_delay_seconds = options.start_delay_seconds ?? 5;
+		return $message.info({
+			duration: options.start_delay_seconds,
+			content: h('span', [
+				`将在 ${options.start_delay_seconds} 秒后自动答题，`,
+				$ui.preventText({
+					name: '点击取消',
+					delay: options.start_delay_seconds,
+					ondefault: (span) => {
+						onrun(opts);
+					},
+					onprevent(span) {
+						const closedMessage = $message.warn({
+							content: '已关闭此次的自动答题，请手动开启或者忽略此警告。',
+							duration: 0
+						});
+						if (closedMessage) {
+							onclose?.(opts, closedMessage);
+						}
+					}
+				})
+			])
+		});
 	}
 }
